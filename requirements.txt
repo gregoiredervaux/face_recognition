@@ -1,0 +1,4 @@
+face_recognition
+numpy
+cv2
+tensorflow
