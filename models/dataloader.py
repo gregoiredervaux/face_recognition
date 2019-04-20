@@ -17,18 +17,15 @@ class DataLoader:
             brightness_range=(0.7, 1.3),
             featurewise_center=False
         )
-
-    def load_data(self, path_to_data):
         self.X = []
         self.Y = []
+
+    def load_data(self, path_to_data):
         dir_list = os.listdir(path_to_data)
         for directory in dir_list:
             index = dir_list.index(directory)
-            X, Y = self.load_class_data(path_to_data + directory, index)
-            self.X += X
-            self.Y += Y
-        self.X = np.array(self.X)
-        self.Y = np.array(self.Y)
+            self.load_class_data(path_to_data + directory, index)
+
 
     def load_class_data(self, db_class_path, class_index):
         X = []
@@ -44,11 +41,10 @@ class DataLoader:
                 X.append(self.getFeatures(img_aug[0]/255))
                 Y.append(class_index)
                 i += 1
-                if i > 100:
+                if i > 10:
                     break
-
-
-        return X, Y
+        self.X += X
+        self.Y += Y
 
     def getFeatures(self, img):
         img_resize = cv2.resize(img, configs.face_describer_tensor_shape)
@@ -57,10 +53,10 @@ class DataLoader:
 
         return face_description
 
-    def serialyse(self, path):
-        np.savetxt(path + "X.txt", self.X)
-        np.savetxt(path + "Y.txt", self.Y)
+    def serialyse(self, path, suffix=""):
+        np.savetxt(path + "X" + suffix + ".txt", self.X)
+        np.savetxt(path + "Y" + suffix + ".txt", self.Y)
 
-    def deserialyse(self, path):
-        self.X = np.loadtxt(path + "X.txt")
-        self.Y = np.loadtxt(path + "Y.txt").astype(int)
+    def deserialyse(self, path, suffix=""):
+        self.X = np.loadtxt(path + "X" + suffix + ".txt")
+        self.Y = np.loadtxt(path + "Y" + suffix + ".txt").astype(int)

@@ -23,12 +23,12 @@ if __name__ == '__main__':
     test_face = face_tracker.get_faces()[0]
     X_test = data.getFeatures(test_face)
 
-    #data.deserialyse(configs.model_pretrained_path)
-    data.load_data(configs.db_path)
-    data.serialyse(configs.model_pretrained_path)
-    nn_model = nn.Model(output_shape=len(np.unique(data.Y)))
+    data.deserialyse(configs.model_pretrained_path)
+    #data.load_data(configs.db_path)
+    #data.serialyse(configs.model_pretrained_path)
+    nn_model = nn.Model(output_shape=len(np.unique(np.array(data.Y))))
     #nn_model = nn.Model(path_to_model="../pretrained/init.hdf5")
-    nn_model.train_model_from_data(data.X, data.Y)
+    nn_model.train_model_from_data(np.array(data.X), np.array(data.Y))
     nn_model.save_model(configs.model_pretrained_path + "init" + configs.save_model_format)
     nn_model.model.summary()
 

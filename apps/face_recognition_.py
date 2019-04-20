@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import scipy
-from models import face_track_server, face_describer_server, nn, camera_server
+from models import face_track_server, face_describer_server, nn, camera_server, dataloader
 from configs import configs
 import os
 import sys
@@ -16,20 +16,19 @@ Main logics is in the process function, where you can further customize.
 
 class Demo(camera_server.CameraServer):
 
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(Demo, self).__init__(*args, **kwargs)
-        self.name = name
-        if not os.path.isfile(configs.db_path + name):
-            os.mkdir(configs.db_path + name)
         self.face_tracker = face_track_server.FaceTrackServer()
         self.face_describer = face_describer_server.FDServer(
             model_fp=configs.face_describer_model_fp,
             input_tensor_names=configs.face_describer_input_tensor_names,
             output_tensor_names=configs.face_describer_output_tensor_names,
             device=configs.face_describer_device)
-        self.face_db = nn.Model()
-        self.face_db.add_class()
-        self.trained = False
+        self.nn_model = nn.Model(path_to_model="../pretrained/init.hdf5")
+        self.nn_model.add_class()
+        data = dataloader.DataLoader(self.face_describer)
+        data.deserialyse(configs.model_pretrained_path, "gregoire")
+        self.nn_model.train_model_from_data(np.array(data.X), np.array(data.Y), epoch=20)
 
     def processs(self, frame):
 
@@ -42,7 +41,6 @@ class Demo(camera_server.CameraServer):
         #self._viz_faces(_faces_loc, frame)
 
         # Step2. For each face, get the cropped face area, feeding it to face describer (insightface) to get 512-D Feature Embedding
-        _face_descriptions = []
         _num_faces = len(_faces)
         if _num_faces == 0:
             return
@@ -52,31 +50,15 @@ class Demo(camera_server.CameraServer):
             _face_resize = cv2.resize(_face, configs.face_describer_tensor_shape)
             _data_feed = [np.expand_dims(_face_resize.copy(), axis=0), configs.face_describer_drop_out_rate]
             _face_description = self.face_describer.inference(_data_feed)[0][0]
-            _face_descriptions.append(_face_description)
 
-            # Step3. For each face, check whether there are similar faces and if not save it to db.
-            # Below naive and verbose implementation is to tutor you how this work
-            dir = os.listdir(configs.db_path + self.name)
-            if len(dir) > 150:
-                cv2.imwrite(configs.db_path + self.name + "/" + str(len(dir) + 1), _face)
-            else:
-                self.face_db.train_new_class(configs.db_path + self.name)
+            with self.nn_model.new_Graph.as_default():
+                Y = self.nn_model.model.predict(np.matrix(_face_description))
+                print(np.argmax(Y[0]))
 
-        print('[Demo] -----------------------------------------------------------')
-
-    def _viz_faces(self, faces_loc, frame):
-        for _face_loc in faces_loc:
-            x1 = int(_face_loc[0] * self.face_tracker.cam_w)
-            y1 = int(_face_loc[1] * self.face_tracker.cam_h)
-            x2 = int(_face_loc[2] * self.face_tracker.cam_w)
-            y2 = int(_face_loc[3] * self.face_tracker.cam_h)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-        cv2.imshow('faces1', frame)
-        cv2.waitKey(1)
 
 
 if __name__ == '__main__':
 
-    demo = Demo(sys.argv[1], camera_address=0)
+    demo = Demo(camera_address=0)
     demo.run()
 

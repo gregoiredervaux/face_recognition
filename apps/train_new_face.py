@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from models import face_track_server, face_describer_server, nn, camera_server
+from models import face_track_server, face_describer_server, nn, camera_server, dataloader
 from configs import configs
 import os
 import sys
@@ -15,7 +15,7 @@ Main logics is in the process function, where you can further customize.
 
 class TrainNewFace(camera_server.CameraServer):
 
-    def __init__(self, path_to_weight, name, *args, **kwargs):
+    def __init__(self, name, *args, **kwargs):
         super(TrainNewFace, self).__init__(*args, **kwargs)
         self.name = name
         self.face_tracker = face_track_server.FaceTrackServer()
@@ -24,13 +24,12 @@ class TrainNewFace(camera_server.CameraServer):
             input_tensor_names=configs.face_describer_input_tensor_names,
             output_tensor_names=configs.face_describer_output_tensor_names,
             device=configs.face_describer_device)
-        self.face_db = nn.Model(self.face_describer, path_to_weight)
+        self.nn_model = nn.Model(path_to_model="../pretrained/init.hdf5")
         try:
-            os.mkdir(configs.db_path + name)
+            os.mkdir(configs.db_custom_path + name)
         except:
             print(name + "existe déjà")
 
-        self.face_db.add_class()
 
     def processs(self, frame):
         # Step1. Find and track face (frame ---> [Face_Tracker] ---> Faces Loactions)
@@ -49,19 +48,9 @@ class TrainNewFace(camera_server.CameraServer):
         for _face in _faces:
             # Step3. For each face, check whether there are similar faces and if not save it to db.
             # Below naive and verbose implementation is to tutor you how this work
-            dir = os.listdir(configs.db_path + self.name)
-            cv2.imwrite(configs.db_path + self.name + "/" + str(len(dir) + 1) + ".jpg", frame)
-        print('[Demo] -----------------------------------------------------------')
+            dir = os.listdir(configs.db_custom_path + self.name)
+            cv2.imwrite(configs.db_custom_path + self.name + "/" + str(len(dir) + 1) + ".jpg", _face)
 
-    def _viz_faces(self, faces_loc, frame):
-        for _face_loc in faces_loc:
-            x1 = int(_face_loc[0] * self.face_tracker.cam_w)
-            y1 = int(_face_loc[1] * self.face_tracker.cam_h)
-            x2 = int(_face_loc[2] * self.face_tracker.cam_w)
-            y2 = int(_face_loc[3] * self.face_tracker.cam_h)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-        cv2.imshow('faces1', frame)
-        cv2.waitKey(1)
 
     def run(self):
         print('[Camera Server] Camera is initializing ...')
@@ -71,19 +60,21 @@ class TrainNewFace(camera_server.CameraServer):
             print('[Camera Server] Camera is not available!')
             return
 
-        while len(os.listdir(configs.db_path + self.name)) <= 150:
+        while len(os.listdir(configs.db_custom_path + self.name)) <= 150:
             self.in_progress = True
 
             # Grab a single frame of video
             ret, frame = self.cam.read()
             self.processs(frame)
-
-        self.in_progress = False
-        self.face_db.train_new_class(self.name, configs.weight_path + self.name)
+        self.nn_model.add_class()
+        data = dataloader.DataLoader(self.face_describer)
+        data.load_class_data(configs.db_custom_path + self.name, self.nn_model.get_nb_classes() - 1)
+        data.serialyse(configs.model_pretrained_path, self.name)
+        self.nn_model.train_model_from_data(np.array(data.X), np.array(data.Y), epoch=20)
 
 
 if __name__ == '__main__':
 
-    train = TrainNewFace(sys.argv[1], sys.argv[2], camera_address=0)
+    train = TrainNewFace(sys.argv[1], camera_address=0)
     train.run()
 

@@ -1,5 +1,4 @@
 import cv2
-import face_recognition
 from faced import FaceDetector
 from faced.utils import annotate_image
 
