@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import scipy
-from models import face_track_server, face_describer_server, face_db, camera_server
+from models import face_track_server, face_describer_server, nn, camera_server
 from configs import configs
 import os
 
@@ -23,7 +23,7 @@ class Demo(camera_server.CameraServer):
             input_tensor_names=configs.face_describer_input_tensor_names,
             output_tensor_names=configs.face_describer_output_tensor_names,
             device=configs.face_describer_device)
-        self.face_db = face_db.Model()
+        self.face_db = nn.Model()
         for filename in os.listdir("../tests/"):
             if filename.endswith(".jpg"):
                 print('add : {}/tests/{}'.format(configs.BASE_PATH, filename))

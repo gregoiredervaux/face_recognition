@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from models import face_track_server, face_describer_server, face_db, camera_server
+from models import face_track_server, face_describer_server, nn, camera_server
 from configs import configs
 import os
 import sys
@@ -15,7 +15,7 @@ Main logics is in the process function, where you can further customize.
 
 class TrainNewFace(camera_server.CameraServer):
 
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self, path_to_weight, name, *args, **kwargs):
         super(TrainNewFace, self).__init__(*args, **kwargs)
         self.name = name
         self.face_tracker = face_track_server.FaceTrackServer()
@@ -24,11 +24,12 @@ class TrainNewFace(camera_server.CameraServer):
             input_tensor_names=configs.face_describer_input_tensor_names,
             output_tensor_names=configs.face_describer_output_tensor_names,
             device=configs.face_describer_device)
-        self.face_db = face_db.Model(self.face_tracker, self.face_describer)
+        self.face_db = nn.Model(self.face_describer, path_to_weight)
         try:
             os.mkdir(configs.db_path + name)
         except:
             print(name + "existe déjà")
+
         self.face_db.add_class()
 
     def processs(self, frame):
@@ -46,17 +47,10 @@ class TrainNewFace(camera_server.CameraServer):
         if _num_faces == 0:
             return
         for _face in _faces:
-            #cv2.imshow("similaire test", _face)
-            #cv2.waitKey(0)
-            _face_resize = cv2.resize(_face, configs.face_describer_tensor_shape)
-            _data_feed = [np.expand_dims(_face_resize.copy(), axis=0), configs.face_describer_drop_out_rate]
-            _face_description = self.face_describer.inference(_data_feed)[0][0]
-            _face_descriptions.append(_face_description)
-
             # Step3. For each face, check whether there are similar faces and if not save it to db.
             # Below naive and verbose implementation is to tutor you how this work
             dir = os.listdir(configs.db_path + self.name)
-            cv2.imwrite(configs.db_path + self.name + "/" + str(len(dir) + 1) + ".jpg", _face)
+            cv2.imwrite(configs.db_path + self.name + "/" + str(len(dir) + 1) + ".jpg", frame)
         print('[Demo] -----------------------------------------------------------')
 
     def _viz_faces(self, faces_loc, frame):
@@ -85,11 +79,11 @@ class TrainNewFace(camera_server.CameraServer):
             self.processs(frame)
 
         self.in_progress = False
-        self.face_db.train_new_class(configs.db_path + self.name)
+        self.face_db.train_new_class(self.name, configs.weight_path + self.name)
+
 
 if __name__ == '__main__':
 
-
-    train = TrainNewFace(sys.argv[1], camera_address=0)
+    train = TrainNewFace(sys.argv[1], sys.argv[2], camera_address=0)
     train.run()
 
