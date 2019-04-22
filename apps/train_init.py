@@ -1,7 +1,6 @@
 import numpy as np
 from models import face_describer_server, nn, dataloader, face_track_server
 from configs import configs
-import cv2
 
 
 '''
