@@ -32,24 +32,17 @@ class TrainNewFace(camera_server.CameraServer):
 
 
     def processs(self, frame):
-        # Step1. Find and track face (frame ---> [Face_Tracker] ---> Faces Loactions)
         self.face_tracker.process(frame)
         _faces = self.face_tracker.get_faces()
-
-        # Uncomment below to visualize face
-        #_faces_loc = self.face_tracker.get_faces_loc()
-        #self._viz_faces(_faces_loc, frame)
-
-        # Step2. For each face, get the cropped face area, feeding it to face describer (insightface) to get 512-D Feature Embedding
         _face_descriptions = []
         _num_faces = len(_faces)
+
         if _num_faces == 0:
             return
         for _face in _faces:
-            # Step3. For each face, check whether there are similar faces and if not save it to db.
-            # Below naive and verbose implementation is to tutor you how this work
+
             dir = os.listdir(configs.db_custom_path + self.name)
-            cv2.imwrite(configs.db_custom_path + self.name + "/" + str(len(dir) + 1) + ".jpg", _face)
+            cv2.imwrite(configs.db_custom_path + self.name + "/" + str(len(dir) + 1) + ".jpg", frame)
 
 
     def run(self):
@@ -60,18 +53,33 @@ class TrainNewFace(camera_server.CameraServer):
             print('[Camera Server] Camera is not available!')
             return
 
-        while len(os.listdir(configs.db_custom_path + self.name)) <= 150:
+        while len(os.listdir(configs.db_custom_path + self.name)) <= 100:
             self.in_progress = True
-
-            # Grab a single frame of video
             ret, frame = self.cam.read()
             self.processs(frame)
-        self.nn_model.add_class()
-        data = dataloader.DataLoader(self.face_describer)
-        data.load_class_data(configs.db_custom_path + self.name, self.nn_model.get_nb_classes() - 1)
-        data.serialyse(configs.model_pretrained_path, self.name)
-        self.nn_model.train_model_from_data(np.array(data.X), np.array(data.Y), epoch=20)
 
+        self.nn_model.add_class()
+        data_custom = dataloader.DataLoader(self.face_describer)
+        data_custom.load_class_data(configs.db_custom_path + self.name, self.nn_model.get_nb_classes() - 1, False)
+        data_custom.serialyse(configs.model_pretrained_path, self.name)
+        #data_custom.deserialyse(configs.model_pretrained_path, self.name)
+        #data_custom.split_from_index(128)
+
+        data_init = dataloader.DataLoader(self.face_describer)
+        data_init.deserialyse(configs.model_pretrained_path)
+        data_init.shuffle()
+        #data_init.split_from_index(128)
+
+        data_custom.X = data_init.X[:min(len(data_custom.X)*8, len(data_init.X))] + data_custom.X
+        data_custom.Y = data_init.Y[:min(len(data_custom.Y)*8, len(data_init.X))] + data_custom.Y
+        data_custom.shuffle()
+        self.nn_model.train_model_from_data(np.array(data_custom.X), np.array(data_custom.Y), epoch=40)
+        self.nn_model.save_model(configs.model_pretrained_path + "init_custom" + configs.save_model_format)
+
+        with self.nn_model.new_Graph.as_default():
+            loss, accuray = self.nn_model.model.evaluate(np.array(data_custom.X), np.array(data_custom.Y))
+            print(loss)
+            print(accuray)
 
 if __name__ == '__main__':
 

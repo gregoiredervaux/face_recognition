@@ -5,10 +5,7 @@ import cv2
 
 
 '''
-The demo app utilize all servers in model folder with simple business scenario/logics:
-I have a camera product and I need to use it to find all visitors in my store who came here before.
-
-Main logics is in the process function, where you can further customize.
+the module is used to  build the initial model and to save the initial 
 '''
 if __name__ == '__main__':
     face_describer = face_describer_server.FDServer(
@@ -18,21 +15,23 @@ if __name__ == '__main__':
         device=configs.face_describer_device)
     face_tracker = face_track_server.FaceTrackServer()
     data = dataloader.DataLoader(face_describer)
-    img = cv2.imread("../tests/jennifer-lawrence_gettyimages-626382596jpg.jpg")
-    face_tracker.process(img)
-    test_face = face_tracker.get_faces()[0]
-    X_test = data.getFeatures(test_face)
+
 
     data.deserialyse(configs.model_pretrained_path)
     #data.load_data(configs.db_path)
     #data.serialyse(configs.model_pretrained_path)
+    data.shuffle()
+
     nn_model = nn.Model(output_shape=len(np.unique(np.array(data.Y))))
     #nn_model = nn.Model(path_to_model="../pretrained/init.hdf5")
-    nn_model.train_model_from_data(np.array(data.X), np.array(data.Y))
+
+
+    #data.split_from_index(128)
+    nn_model.train_model_from_data(np.array(data.X), np.array(data.Y), 500)
     nn_model.save_model(configs.model_pretrained_path + "init" + configs.save_model_format)
     nn_model.model.summary()
 
-    with nn_model.new_Graph.as_default():
-        Y = nn_model.model.predict(np.matrix(X_test))
-        print(np.argmax(Y[0]))
 
+    with nn_model.new_Graph.as_default():
+        loss, test_accuracy = nn_model.model.evaluate(np.array(data.X[:1000]), np.array(data.Y[:1000]))
+        print(test_accuracy)

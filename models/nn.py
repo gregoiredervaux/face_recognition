@@ -17,14 +17,14 @@ class Model(object):
             if path_to_model is None:
                 self.model = keras.Sequential([
                     keras.layers.Dropout(0.4),
-                    keras.layers.Dense(128, activation=tf.nn.sigmoid, name="hidden"),
+                    keras.layers.Dense(64, activation=tf.nn.sigmoid, name="hidden"),
                     keras.layers.Dropout(0.4),
                     keras.layers.Dense(output_shape, activation=tf.nn.softmax, name="output")
                 ])
             else:
                 self.model = keras.models.load_model(path_to_model)
 
-            self.model.compile(optimizer=keras.optimizers.Adam(lr=0.001), loss="sparse_categorical_crossentropy", metrics=['accuracy'])
+            self.model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), loss="sparse_categorical_crossentropy", metrics=['accuracy'])
 
 
     def train_model_from_weights(self, path_to_weight):
@@ -34,22 +34,32 @@ class Model(object):
             self.model.load_weights(path_to_weight)
 
 
-    def train_model_from_data(self, X, Y, epoch=300):
-
-        X = np.append(X, np.reshape(Y, (len(Y), 1)), axis=1)
-        np.random.shuffle(X)
-        Y = X[:,-1].astype(int)
-        X = np.delete(X, -1, axis=1)
+    def train_model_from_data(self, X, Y, epoch=100):
         with self.new_Graph.as_default():
             history = self.model.fit(X, Y, epochs=epoch, validation_split=0.2)
+            weights = self.model.layers[-1].get_weights()
+            plt.matshow(weights[0])
+            plt.show()
 
             plt.figure(figsize=(10, 8))
-
+            fig, ax = plt.subplots()
+            ax.set(xlabel="Epochs", ylabel="Accuracy", title="Training")
+            ax.grid()
             val = plt.plot(history.epoch, history.history['val_acc'],
                            '--', label=' val_acc')
             plt.plot(history.epoch, history.history['acc'], color=val[0].get_color(),
                      label='Train')
+            plt.show()
 
+            plt.figure(figsize=(10, 8))
+            fig, ax = plt.subplots()
+            ax.set(xlabel="Epochs", ylabel="Loss", title="Training")
+            ax.grid()
+
+            val = plt.plot(history.epoch, history.history['val_loss'],
+                           '--', label=' val_loss')
+            plt.plot(history.epoch, history.history['loss'], color=val[0].get_color(),
+                     label='Train')
             plt.show()
 
 
@@ -57,15 +67,15 @@ class Model(object):
     def add_class(self):
         with self.new_Graph.as_default():
             weights = self.model.layers[-1].get_weights()
-            weights[0] = np.array([np.append(weights_ligne, np.random.normal(0, 0.01, 1)) for weights_ligne in weights[0]])
+            mean = np.mean(weights[0])
+            std = np.std(weights[0])
+            weights[0] = np.array([np.append(weights_ligne, np.random.normal(mean, std, 1)) for weights_ligne in weights[0]])
             weights[1] = np.append(weights[1], 0)
-            self.model.summary()
             self.model.pop()
-            self.model.summary()
             new_layer = keras.layers.Dense(weights[1].shape[0], activation=tf.nn.softmax, name="output")
             self.model.add(new_layer)
             self.model.get_layer("output").set_weights(weights)
-            self.model.compile(optimizer=keras.optimizers.Adam(lr=0.001), loss="sparse_categorical_crossentropy", metrics=['accuracy'])
+            self.model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), loss="sparse_categorical_crossentropy", metrics=['accuracy'])
             self.model.summary()
 
     def get_nb_classes(self):
@@ -76,9 +86,6 @@ class Model(object):
 
     def save_model(self, path):
         self.model.save(path)
-
-    def __str__(self):
-        return self.model.summary()
 
 
 

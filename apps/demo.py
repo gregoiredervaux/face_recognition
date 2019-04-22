@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import scipy
 from models import face_track_server, face_describer_server, nn, camera_server
 from configs import configs
 import os

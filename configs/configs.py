@@ -8,6 +8,7 @@ face_describer_model_fp = '{}/pretrained/insightface.pb'.format(BASE_PATH)
 face_describer_tensor_shape = (112, 112)
 face_describer_drop_out_rate = 0.5
 test_img_fp = '{}/tests/test.jpg'.format(BASE_PATH)
+
 db_path = '{}/db/'.format(BASE_PATH)
 db_custom_path = '{}/db_custom/'.format(BASE_PATH)
 model_pretrained_path = '{}/pretrained/'.format(BASE_PATH)

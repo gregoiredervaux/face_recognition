@@ -51,10 +51,10 @@ class FaceTrackServer(object):
 
         for x, y, w, h, _ in self.face_locations:
             # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-            x1 = x - int(w / 2)
-            y1 = y - int(h / 2)
-            x2 = x + int(w / 2)
-            y2 = y + int(h / 2)
+            x1 = int((x - int(w / 2))*(1 - 0.1))
+            y1 = int((y - int(h / 2))*(1 - 0.1))
+            x2 = int((x + int(w / 2))*(1 + 0.1))
+            y2 = int((y + int(h / 2))*(1 + 0.1))
 
             _face_area = frame[y1:y2, x1:x2, :]
 
